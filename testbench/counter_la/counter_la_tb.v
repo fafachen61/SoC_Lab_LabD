@@ -243,7 +243,7 @@ module counter_la_tb;
 	);
 
 	spiflash #(
-		.FILENAME("counter_la.hex")
+		.FILENAME("matmul.hex")
 	) spiflash (
 		.csb(flash_csb),
 		.clk(flash_clk),
