@@ -75,7 +75,7 @@ module sdram_controller (
     reg [3:0] Prefetch_Counter_r, Prefetch_Counter_w;
     reg [31:0] Prefetch_Data_Storage [0:Prefetch_Num-1];
     reg [31:0] Prefetch_Addr_Storage [0:Prefetch_Num-1];
-    reg [22:0] temp_addr_q, temp_addr_d;
+    reg [22:0] temp_addr_q, temp_addr_d, temp_addr_1_q;
     wire match_bank;
     assign match_bank = (temp_addr_q[9:8] == Prefetch_Addr_Storage[0][9:8]);
     
@@ -290,7 +290,49 @@ module sdram_controller (
                             if (saved_rw_q)
                                 state_d = WRITE;
                             else
-                                state_d = READ;
+                                // if(user_addr == Prefetch_Addr_Storage[0])begin
+                                //     data_d = Prefetch_Data_Storage[0]; // data_d by pass
+                                //     out_valid_d = 1'b1;
+                                //     state_d = IDLE;
+                                // end
+                                // else if(user_addr == Prefetch_Addr_Storage[1])begin
+                                //     data_d = Prefetch_Data_Storage[1]; // data_d by pass
+                                //     out_valid_d = 1'b1;
+                                //     state_d = IDLE;
+                                // end
+                                // else if(addr == Prefetch_Addr_Storage[2])begin
+                                //     data_d = Prefetch_Data_Storage[2]; // data_d by pass
+                                //     out_valid_d = 1'b1;
+                                //     state_d = IDLE;
+                                // end
+                                // else if(addr == Prefetch_Addr_Storage[3])begin
+                                //     data_d = Prefetch_Data_Storage[3]; // data_d by pass
+                                //     out_valid_d = 1'b1;
+                                //     state_d = IDLE;
+                                // end
+                                // else if(addr == Prefetch_Addr_Storage[4])begin
+                                //     data_d = Prefetch_Data_Storage[4]; // data_d by pass
+                                //     out_valid_d = 1'b1;
+                                //     state_d = IDLE;
+                                // end
+                                // else if(addr == Prefetch_Addr_Storage[5])begin
+                                //     data_d = Prefetch_Data_Storage[5]; // data_d by pass
+                                //     out_valid_d = 1'b1;
+                                //     state_d = IDLE;
+                                // end
+                                // else if(addr == Prefetch_Addr_Storage[6])begin
+                                //     data_d = Prefetch_Data_Storage[6]; // data_d by pass
+                                //     out_valid_d = 1'b1;
+                                //     state_d = IDLE;
+                                // end
+                                // else if(addr == Prefetch_Addr_Storage[7])begin
+                                //     data_d = Prefetch_Data_Storage[7]; // data_d by pass
+                                //     out_valid_d = 1'b1;
+                                //     state_d = IDLE;
+                                // end
+                                // else begin
+                                    state_d = READ;
+                                // end
                         end else begin
                             // A different row in the bank is open
                             state_d = PRECHARGE; // precharge open row
@@ -302,62 +344,12 @@ module sdram_controller (
                         state_d = ACTIVATE; // open the row
                     end
                 end
-            end
-
-            ///// REFRESH /////
-            REFRESH: begin
-                cmd_d = CMD_REFRESH;
-                state_d = WAIT;
-
-                // Jiin
-                // delay_ctr_d = 13'd6; // gotta wait 7 clocks (66ns)
-                delay_ctr_d = tREF;
-
-                next_state_d = IDLE;
-            end
-
-            ///// ACTIVATE /////
-            ACTIVATE: begin
-                cmd_d = CMD_ACTIVE;
-                a_d = addr_q[22:10];
-                ba_d = addr_q[9:8];
-
-                // Jiin:
-                //      delay_ctr_d = 13'd0;
-                delay_ctr_d = tACT;
-
-                state_d = WAIT;
-
-                if (rw_op_q)
-                    next_state_d = WRITE;
-                else
-                    next_state_d = READ;
-
-                row_open_d[addr_q[9:8]] = 1'b1; // row is now open
-                row_addr_d[addr_q[9:8]] = addr_q[22:10];
-            end
-
-            ///// READ /////
-            READ: begin
-                if(Prefetch_Counter_r > 0)begin
-                    if(temp_addr_q[9:8] !== Prefetch_Addr_Storage[0][9:8])begin
-                        state_d = READ_RES;
-                    end
-                    else begin
-                        cmd_d = CMD_READ;
-                        temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
-                        a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
-                        ba_d = temp_addr_d[9:8];
-                        state_d = WAIT;
-
-                        // Jiin
-                        // delay_ctr_d = 13'd2; // wait for the data to show up
-                        delay_ctr_d = tCASL;
-                        next_state_d = READ_RES;
-                    end
-                    
-                end
-                else begin
+                // if(addr == Prefetch_Addr_Storage[0])begin
+                //     data_d = Prefetch_Data_Storage[0]; // data_d by pass
+                //     out_valid_d = 1'b1;
+                //     state_d = IDLE;
+                // end
+                if(!ready_q) begin
                     if(addr == Prefetch_Addr_Storage[0])begin
                         data_d = Prefetch_Data_Storage[0]; // data_d by pass
                         out_valid_d = 1'b1;
@@ -398,46 +390,133 @@ module sdram_controller (
                         out_valid_d = 1'b1;
                         state_d = IDLE;
                     end
-                    else begin
+                end
+                
+            end
+
+            ///// REFRESH /////
+            REFRESH: begin
+                cmd_d = CMD_REFRESH;
+                state_d = WAIT;
+
+                // Jiin
+                // delay_ctr_d = 13'd6; // gotta wait 7 clocks (66ns)
+                delay_ctr_d = tREF;
+
+                next_state_d = IDLE;
+            end
+
+            ///// ACTIVATE /////
+            ACTIVATE: begin
+                cmd_d = CMD_ACTIVE;
+                a_d = addr_q[22:10];
+                ba_d = addr_q[9:8];
+
+                // Jiin:
+                //      delay_ctr_d = 13'd0;
+                delay_ctr_d = tACT;
+
+                state_d = WAIT;
+
+                if (rw_op_q)
+                    next_state_d = WRITE;
+                else
+                    next_state_d = READ;
+
+                row_open_d[addr_q[9:8]] = 1'b1; // row is now open
+                row_addr_d[addr_q[9:8]] = addr_q[22:10];
+            end
+
+            ///// READ /////
+            READ: begin
+                if(Prefetch_Counter_r > 0)begin
+                    // if(temp_addr_q[9:8] !== Prefetch_Addr_Storage[0][9:8])begin
+                    //     state_d = READ_RES;
+                    // end
+                    // else begin
+                        Prefetch_Addr_Storage[Prefetch_Counter_r-1] = temp_addr_1_q;
+                        Prefetch_Data_Storage[Prefetch_Counter_r-1] = dqi_q;
+
+                        // cmd_d = CMD_READ;
+                        // temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
+                        // a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
+                        // ba_d = temp_addr_d[9:8];
+                        state_d = WAIT;
+
+                        // Jiin
+                        // delay_ctr_d = 13'd2; // wait for the data to show up
+                        delay_ctr_d = tCASL -2;
+                        next_state_d = READ_RES;
+
+                        if(Prefetch_Counter_r+1 >= Prefetch_Num || temp_addr_q[9:8] !== Prefetch_Addr_Storage[0][9:8]) begin
+                            state_d = IDLE;
+                            Prefetch_Counter_w = 0;
+                            data_d = Prefetch_Data_Storage[0]; // data_d by pass
+                            out_valid_d = 1'b1;
+                            temp_addr_d = temp_addr_1_q;
+                            a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
+                            ba_d = temp_addr_d[9:8];
+                        end
+                    // end
+                    
+                end
+                else begin
                         cmd_d = CMD_READ;
-                        temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
+                        temp_addr_d = addr_q;// + 4 * Prefetch_Counter_r;
                         a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
                         ba_d = temp_addr_d[9:8];
                         state_d = WAIT;
 
                         // Jiin
                         // delay_ctr_d = 13'd2; // wait for the data to show up
-                        delay_ctr_d = tCASL;
+                        delay_ctr_d = tCASL - 1;
 
                         next_state_d = READ_RES;
-                    end
                 end
+                Prefetch_Counter_w = Prefetch_Counter_r + 1;
                 
                 
 
             end
             READ_RES: begin
-                Prefetch_Addr_Storage[Prefetch_Counter_r] = temp_addr_q;
-                Prefetch_Data_Storage[Prefetch_Counter_r] = dqi_q;
-                if(Prefetch_Counter_r+1 < Prefetch_Num && match_bank)begin
-                    state_d = READ;
-                    Prefetch_Counter_w = Prefetch_Counter_r + 1;
-                    // if(temp_addr_q[9:8] == Prefetch_Addr_Storage[0][9:8])begin
-                        
-                    // end
-                    // else begin
-                    //     state_d = IDLE;
-                    //     Prefetch_Counter_w = 0;
-                    //     data_d = Prefetch_Data_Storage[0]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    // end
-                end
-                else begin
+                temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
+                if(temp_addr_d[9:8] !== addr_q[9:8]) begin
                     state_d = IDLE;
                     Prefetch_Counter_w = 0;
                     data_d = Prefetch_Data_Storage[0]; // data_d by pass
                     out_valid_d = 1'b1;
+                    temp_addr_d = temp_addr_q;
+                    a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
+                    ba_d = temp_addr_d[9:8];
                 end
+                else begin
+                    cmd_d = CMD_READ;
+                    a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
+                    ba_d = temp_addr_d[9:8];
+                    state_d = READ;
+                end
+                
+                // Prefetch_Addr_Storage[Prefetch_Counter_r] = temp_addr_q;
+                // Prefetch_Data_Storage[Prefetch_Counter_r] = dqi_q;
+                // if(Prefetch_Counter_r+1 < Prefetch_Num && match_bank)begin
+                //     state_d = READ;
+                //     Prefetch_Counter_w = Prefetch_Counter_r + 1;
+                //     // if(temp_addr_q[9:8] == Prefetch_Addr_Storage[0][9:8])begin
+                        
+                //     // end
+                //     // else begin
+                //     //     state_d = IDLE;
+                //     //     Prefetch_Counter_w = 0;
+                //     //     data_d = Prefetch_Data_Storage[0]; // data_d by pass
+                //     //     out_valid_d = 1'b1;
+                //     // end
+                // end
+                // else begin
+                //     state_d = IDLE;
+                //     Prefetch_Counter_w = 0;
+                //     data_d = Prefetch_Data_Storage[0]; // data_d by pass
+                //     out_valid_d = 1'b1;
+                // end
                 // state_d = IDLE;
                 // Prefetch_Counter_w = 0;
 
@@ -519,6 +598,7 @@ module sdram_controller (
         Prefetch_Counter_r <= Prefetch_Counter_w;
         Prefetch_Addr_r <= Prefetch_Addr_w;
         temp_addr_q <= temp_addr_d;
+        temp_addr_1_q <= temp_addr_q;
     end
 
 endmodule

@@ -72,10 +72,11 @@ module sdram_controller (
     /////////////////////////////////////////
     reg [8:0] temp_addr_adder;
     localparam Prefetch_Num = 4'd8;
+    localparam SDRAM_DELAY = 4'd4;
     reg [3:0] Prefetch_Counter_r, Prefetch_Counter_w;
     reg [31:0] Prefetch_Data_Storage [0:Prefetch_Num-1];
     reg [31:0] Prefetch_Addr_Storage [0:Prefetch_Num-1];
-    reg [22:0] temp_addr_q, temp_addr_d;
+    reg [22:0] temp_addr_q, temp_addr_d, temp_addr_1_q, temp_addr_2_q, temp_addr_3_q;
     wire match_bank;
     assign match_bank = (temp_addr_q[9:8] == Prefetch_Addr_Storage[0][9:8]);
     
@@ -93,7 +94,9 @@ module sdram_controller (
                READ_RES = 4'd10,
                WRITE = 4'd11,
                PRECHARGE = 4'd12,
-               PREFETCH = 4'd13;
+               PREFETCH = 4'd13,
+               PREFETCH_START = 4'd14,
+               PREFETCH_WAIT = 4'd15;
     
     // registers for SDRAM signals
     reg cle_d, cle_q;
@@ -268,7 +271,6 @@ module sdram_controller (
                 ////////////////////////////////////////
                 Prefetch_Counter_w = 0;
                 Prefetch_Addr_w = addr;
-
             
                 if (refresh_flag_q) begin // we need to do a refresh
                     state_d = PRECHARGE;
@@ -382,83 +384,60 @@ module sdram_controller (
 
             ///// READ /////
             READ: begin
-                if(Prefetch_Counter_r > 0)begin
-                    if(temp_addr_q[9:8] !== Prefetch_Addr_Storage[0][9:8])begin
-                        state_d = READ_RES;
+
+                if(Prefetch_Counter_r <= Prefetch_Num + SDRAM_DELAY - 1 ) begin
+                    if(Prefetch_Counter_r == Prefetch_Num + SDRAM_DELAY - 1) begin
+                        state_d = IDLE;
+                        Prefetch_Counter_w = 0;
+                        data_d = Prefetch_Data_Storage[0]; // data_d by pass
+                        out_valid_d = 1'b1;
                     end
                     else begin
+                        Prefetch_Counter_w = Prefetch_Counter_r + 1;
+                        state_d = READ;
                         cmd_d = CMD_READ;
                         temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
                         a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
-                        ba_d = temp_addr_d[9:8];
-                        state_d = WAIT;
-
-                        // Jiin
-                        // delay_ctr_d = 13'd2; // wait for the data to show up
-                        delay_ctr_d = tCASL;
-                        next_state_d = READ_RES;
                     end
+                    if(Prefetch_Counter_r >= SDRAM_DELAY) begin
+                        Prefetch_Addr_Storage[Prefetch_Counter_r - SDRAM_DELAY] = temp_addr_3_q;
+                        Prefetch_Data_Storage[Prefetch_Counter_r - SDRAM_DELAY] = dqi_q;
+                    end
+                end
+
+                // if(Prefetch_Counter_r > 0)begin
+                //     if(temp_addr_q[9:8] !== Prefetch_Addr_Storage[0][9:8])begin
+                //         state_d = READ_RES;
+                //     end
+                //     else begin
+                //         cmd_d = CMD_READ;
+                //         temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
+                //         a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
+                //         ba_d = temp_addr_d[9:8];
+                //         state_d = WAIT;
+
+                //         // Jiin
+                //         // delay_ctr_d = 13'd2; // wait for the data to show up
+                //         delay_ctr_d = tCASL;
+                //         next_state_d = READ_RES;
+                //     end
                     
-                end
-                else begin
-                    // if(addr == Prefetch_Addr_Storage[0])begin
-                    //     data_d = Prefetch_Data_Storage[0]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    //     state_d = IDLE;
-                    // end
-                    // else if(addr == Prefetch_Addr_Storage[1])begin
-                    //     data_d = Prefetch_Data_Storage[1]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    //     state_d = IDLE;
-                    // end
-                    // else if(addr == Prefetch_Addr_Storage[2])begin
-                    //     data_d = Prefetch_Data_Storage[2]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    //     state_d = IDLE;
-                    // end
-                    // else if(addr == Prefetch_Addr_Storage[3])begin
-                    //     data_d = Prefetch_Data_Storage[3]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    //     state_d = IDLE;
-                    // end
-                    // else if(addr == Prefetch_Addr_Storage[4])begin
-                    //     data_d = Prefetch_Data_Storage[4]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    //     state_d = IDLE;
-                    // end
-                    // else if(addr == Prefetch_Addr_Storage[5])begin
-                    //     data_d = Prefetch_Data_Storage[5]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    //     state_d = IDLE;
-                    // end
-                    // else if(addr == Prefetch_Addr_Storage[6])begin
-                    //     data_d = Prefetch_Data_Storage[6]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    //     state_d = IDLE;
-                    // end
-                    // else if(addr == Prefetch_Addr_Storage[7])begin
-                    //     data_d = Prefetch_Data_Storage[7]; // data_d by pass
-                    //     out_valid_d = 1'b1;
-                    //     state_d = IDLE;
-                    // end
-                    // else begin
-                        cmd_d = CMD_READ;
-                        temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
-                        a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
-                        ba_d = temp_addr_d[9:8];
-                        state_d = WAIT;
+                // end
+                // else begin
+                //         cmd_d = CMD_READ;
+                //         temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
+                //         a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
+                //         ba_d = temp_addr_d[9:8];
+                //         state_d = WAIT;
 
-                        // Jiin
-                        // delay_ctr_d = 13'd2; // wait for the data to show up
-                        delay_ctr_d = tCASL;
+                //         // Jiin
+                //         // delay_ctr_d = 13'd2; // wait for the data to show up
+                //         delay_ctr_d = tCASL;
 
-                        next_state_d = READ_RES;
-                    // end
-                end
-                
-                
-
+                //         next_state_d = READ_RES;
+                // end
             end
+            
             READ_RES: begin
                 Prefetch_Addr_Storage[Prefetch_Counter_r] = temp_addr_q;
                 Prefetch_Data_Storage[Prefetch_Counter_r] = dqi_q;
@@ -562,6 +541,9 @@ module sdram_controller (
         Prefetch_Counter_r <= Prefetch_Counter_w;
         Prefetch_Addr_r <= Prefetch_Addr_w;
         temp_addr_q <= temp_addr_d;
+        temp_addr_1_q <= temp_addr_q;
+        temp_addr_2_q <= temp_addr_1_q;
+        temp_addr_3_q <= temp_addr_2_q;
     end
 
 endmodule
