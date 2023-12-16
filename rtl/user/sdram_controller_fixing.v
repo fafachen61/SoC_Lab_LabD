@@ -145,6 +145,16 @@ module sdram_controller (
     reg [2:0] precharge_bank_d, precharge_bank_q;
     integer i;
 
+    generate
+    genvar idx;
+    for(idx = 0; idx < Prefetch_Num; idx = idx+1) begin: register
+        wire [31:0] pref_data_viewer;
+        assign pref_data_viewer = Prefetch_Data_Storage[idx];
+        wire [31:0] pref_addr_viewer;
+        assign pref_addr_viewer = Prefetch_Addr_Storage[idx];
+    end
+    endgenerate
+
     assign data_out = data_q;
     assign busy = !ready_q;
     assign out_valid = out_valid_q;
@@ -398,6 +408,7 @@ module sdram_controller (
                         cmd_d = CMD_READ;
                         temp_addr_d = addr_q + 4 * Prefetch_Counter_r;
                         a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
+                        ba_d = temp_addr_d[9:8];
                     end
                     if(Prefetch_Counter_r >= SDRAM_DELAY) begin
                         Prefetch_Addr_Storage[Prefetch_Counter_r - SDRAM_DELAY] = temp_addr_3_q;

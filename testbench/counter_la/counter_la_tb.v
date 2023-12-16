@@ -154,6 +154,15 @@ module counter_la_tb;
 		$finish;
 	end
 
+	reg [32:0] counter_cycle;
+	initial begin
+		counter_cycle <= 0;
+		
+	end
+	always @(posedge clock) begin
+		 counter_cycle <= counter_cycle + 1;
+	end
+
 	initial begin
 		wait(checkbits == 16'hAB40);
 		$display("LA Test 1 started");
@@ -173,6 +182,7 @@ module counter_la_tb;
 
 		wait(checkbits == 16'hAB51);
 		$display("LA Test 2 passed");
+		$display(counter_cycle);
 		#10000;
 		$finish;
 	end
