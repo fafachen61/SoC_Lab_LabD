@@ -28,7 +28,7 @@ module counter_la_tb;
 	wire uart_tx;
 	wire [37:0] mprj_io;
 	wire [15:0] checkbits;
-
+	integer clk_cnt;
 	assign checkbits  = mprj_io[31:16];
 	assign uart_tx = mprj_io[6];
 
@@ -140,9 +140,9 @@ module counter_la_tb;
 		$dumpvars(0, counter_la_tb);
 
 		// Repeat cycles of 1000 clock edges as needed to complete testbench
-		repeat (4) begin
-			repeat (50000) @(posedge clock);
-			$display("+50000 cycles");
+		repeat (300) begin
+			repeat (5000) @(posedge clock);
+			// $display("+1000 cycles");
 		end
 		$display("%c[1;31m",27);
 		`ifdef GL
@@ -159,9 +159,8 @@ module counter_la_tb;
 		$display("LA Test 1 started");
 		//wait(checkbits == 16'hAB41);
 
-		// wait(checkbits == 16'h2233);
-		// $display("Call function adder() in User Project BRAM (mprjram, 0x38000000) return value passed, 0x%x", checkbits);		
-
+		//wait(checkbits == 16'h2233);
+		//$display("Call function adder() in User Project BRAM (mprjram, 0x38000000) return value passed, 0x%x", checkbits);
 		wait(checkbits == 16'h003E);
 		$display("Call function matmul() in User Project BRAM (mprjram, 0x38000000) return value passed, 0x%x", checkbits);
 		wait(checkbits == 16'h0044);
@@ -175,8 +174,17 @@ module counter_la_tb;
 		$display("LA Test 2 passed");
 		#10000;
 		$finish;
-	end
 
+	end
+	initial begin
+		wait(checkbits == 16'hAB40);
+		clk_cnt = 0;
+		while (checkbits !== 16'hAB51)begin
+			@(posedge clock);
+			clk_cnt = clk_cnt+1;
+		end
+		$display("latency=%dcycles",clk_cnt);
+	end
 	initial begin
 		RSTB <= 1'b0;
 		CSB  <= 1'b1;		// Force CSB high
@@ -243,7 +251,7 @@ module counter_la_tb;
 	);
 
 	spiflash #(
-		.FILENAME("matmul.hex")
+		.FILENAME("counter_la.hex")
 	) spiflash (
 		.csb(flash_csb),
 		.clk(flash_clk),

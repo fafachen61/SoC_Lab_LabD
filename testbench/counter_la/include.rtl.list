@@ -5,7 +5,7 @@
 ## User project
 -v ../../rtl/user/user_project_wrapper.v
 -v ../../rtl/user/user_proj_example.counter.v
--v ../../rtl/user/sdram_controller.v
+-v ../../rtl/user/sdram_controller_remap.v
 -v ../../rtl/user/sdr.v
 
 ## VIP
