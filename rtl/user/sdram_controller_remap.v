@@ -420,6 +420,11 @@ module sdram_controller (
                             a_d = {2'b0, 1'b0, temp_addr_d[7:0], 2'b0};
                             ba_d = temp_addr_d[9:8];
                         end
+                        else begin
+                            temp_addr_d = temp_addr_q;
+                            a_d = a_q;
+                            ba_d = ba_q;
+                        end
                     end
                     if(Prefetch_Counter_r >= SDRAM_DELAY) begin
                         Prefetch_Addr_Storage[Prefetch_Counter_r - SDRAM_DELAY] = temp_addr_3_q;
